@@ -6,4 +6,4 @@ namespace: dev
 images:
 - name: ghcr.io/sajjadkhan12/complete-app-cicd/java-app
   newName: ghcr.io/sajjadkhan12/complete-app-cicd/java-app
-  newTag: b87e8f5
+  newTag: 2d67c45
