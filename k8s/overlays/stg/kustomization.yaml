@@ -6,4 +6,4 @@ namespace: stg
 images:
 - name: ghcr.io/sajjadkhan12/complete-app-cicd/java-app
   newName: ghcr.io/sajjadkhan12/complete-app-cicd/java-app
-  newTag: 2e82b42
+  newTag: e50ec35
