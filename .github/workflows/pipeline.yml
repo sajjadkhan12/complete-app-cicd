@@ -3,6 +3,9 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
+    paths:
+      - "java-app/**"
+      - ".github/workflows/**"
 
 jobs:
   build:
@@ -85,7 +88,7 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add k8s/overlays/dev/kustomization.yaml
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Deploy to dev: ${{ steps.vars.outputs.sha_short }}" && git pull --rebase --autostash && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Deploy to dev: ${{ steps.vars.outputs.sha_short }} [skip ci]" && git pull --rebase --autostash && git push)
 
   deploy-stg:
     name: Deploy to Staging
@@ -115,7 +118,7 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add k8s/overlays/stg/kustomization.yaml
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Deploy to stg: ${{ steps.vars.outputs.sha_short }}" && git pull --rebase --autostash && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Deploy to stg: ${{ steps.vars.outputs.sha_short }} [skip ci]" && git pull --rebase --autostash && git push)
 
   deploy-prod:
     name: Deploy to Production
@@ -145,4 +148,4 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add k8s/overlays/prod/kustomization.yaml
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Deploy to prod: ${{ steps.vars.outputs.sha_short }}" && git pull --rebase --autostash && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Deploy to prod: ${{ steps.vars.outputs.sha_short }} [skip ci]" && git pull --rebase --autostash && git push)
