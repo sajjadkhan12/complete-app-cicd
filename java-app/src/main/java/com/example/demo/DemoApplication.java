@@ -1,3 +1,4 @@
+// Final trigger for optimized pipeline
 package com.example.demo;
 
 import org.springframework.boot.SpringApplication;
@@ -15,11 +16,11 @@ public class DemoApplication {
 
 	@GetMapping("/")
 	public String hello() {
-		return "Hello from CI/CD Demo App!";
+		return "Hello from CI/CD Demo App! (v2)";
 	}
 
-    @GetMapping("/health")
-    public String health() {
-        return "UP";
-    }
+	@GetMapping("/health")
+	public String health() {
+		return "UP";
+	}
 }
