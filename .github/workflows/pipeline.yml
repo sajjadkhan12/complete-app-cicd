@@ -1,113 +1,140 @@
 name: CI/CD Pipeline
 
 on:
-    push:
-        branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-    build:
-        name: Build and Scan
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            packages: write
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+  build:
+    name: Build and Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Set up JDK 17
-              uses: actions/setup-java@v4
-              with:
-                  java-version: "17"
-                  distribution: "temurin"
-                  cache: maven
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
 
-            - name: Build with Maven
-              run: mvn -f java-app/pom.xml clean package
+      - name: Build with Maven
+        run: mvn -f java-app/pom.xml clean package
 
-            - name: Log in to GitHub Container Registry
-              uses: docker/login-action@v3
-              with:
-                  registry: ghcr.io
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build and push Docker image
-              id: docker_build
-              uses: docker/build-push-action@v5
-              with:
-                  context: ./java-app
-                  push: true
-                  tags: |
-                      ghcr.io/${{ github.repository }}/java-app:${{ github.sha }}
-                      ghcr.io/${{ github.repository }}/java-app:latest
+      - name: Extract Short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-            - name: Run Trivy vulnerability scanner
-              uses: aquasecurity/trivy-action@master
-              with:
-                  image-ref: "ghcr.io/${{ github.repository }}/java-app:${{ github.sha }}"
-                  format: "table"
-                  environment: "github"
-                  severity: "CRITICAL,HIGH"
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./java-app
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/java-app:${{ steps.vars.outputs.sha_short }}
+            ghcr.io/${{ github.repository }}/java-app:latest
 
-    deploy-dev:
-        name: Deploy to Dev
-        needs: build
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "ghcr.io/${{ github.repository }}/java-app:${{ steps.vars.outputs.sha_short }}"
+          format: "table"
+          environment: "github"
+          severity: "CRITICAL,HIGH"
 
-            - name: Update manifest
-              run: |
-                  sed -i "s|image: ghcr.io/placeholder/java-app:latest|image: ghcr.io/${{ github.repository }}/java-app:${{ github.sha }}|g" k8s/dev/app.yaml
+  deploy-dev:
+    name: Deploy to Dev
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Commit and push changes
-              run: |
-                  git config --global user.name "github-actions"
-                  git config --global user.email "github-actions@github.com"
-                  git add k8s/dev/app.yaml
-                  git commit -m "Deploy to dev: ${{ github.sha }}"
-                  git push
+      - name: Extract Short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-    deploy-stg:
-        name: Deploy to Staging
-        needs: build
-        runs-on: ubuntu-latest
-        environment: stg
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
 
-            - name: Update manifest
-              run: |
-                  sed -i "s|image: ghcr.io/placeholder/java-app:latest|image: ghcr.io/${{ github.repository }}/java-app:${{ github.sha }}|g" k8s/stg/app.yaml
+      - name: Update image tag
+        run: |
+          cd k8s/overlays/dev
+          kustomize edit set image ghcr.io/sajjadkhan12/complete-app-cicd/java-app=ghcr.io/${{ github.repository }}/java-app:${{ steps.vars.outputs.sha_short }}
 
-            - name: Commit and push changes
-              run: |
-                  git config --global user.name "github-actions"
-                  git config --global user.email "github-actions@github.com"
-                  git add k8s/stg/app.yaml
-                  git commit -m "Deploy to stg: ${{ github.sha }}"
-                  git push
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add k8s/overlays/dev/kustomization.yaml
+          git commit -m "Deploy to dev: ${{ steps.vars.outputs.sha_short }}"
+          git push
 
-    deploy-prod:
-        name: Deploy to Production
-        needs: build
-        runs-on: ubuntu-latest
-        environment: prod
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+  deploy-stg:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment: stg
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Update manifest
-              run: |
-                  sed -i "s|image: ghcr.io/placeholder/java-app:latest|image: ghcr.io/${{ github.repository }}/java-app:${{ github.sha }}|g" k8s/prod/app.yaml
+      - name: Extract Short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-            - name: Commit and push changes
-              run: |
-                  git config --global user.name "github-actions"
-                  git config --global user.email "github-actions@github.com"
-                  git add k8s/prod/app.yaml
-                  git commit -m "Deploy to prod: ${{ github.sha }}"
-                  git push
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tag
+        run: |
+          cd k8s/overlays/stg
+          kustomize edit set image ghcr.io/sajjadkhan12/complete-app-cicd/java-app=ghcr.io/${{ github.repository }}/java-app:${{ steps.vars.outputs.sha_short }}
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add k8s/overlays/stg/kustomization.yaml
+          git commit -m "Deploy to stg: ${{ steps.vars.outputs.sha_short }}"
+          git push
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: build
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tag
+        run: |
+          cd k8s/overlays/prod
+          kustomize edit set image ghcr.io/sajjadkhan12/complete-app-cicd/java-app=ghcr.io/${{ github.repository }}/java-app:${{ steps.vars.outputs.sha_short }}
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add k8s/overlays/prod/kustomization.yaml
+          git commit -m "Deploy to prod: ${{ steps.vars.outputs.sha_short }}"
+          git push

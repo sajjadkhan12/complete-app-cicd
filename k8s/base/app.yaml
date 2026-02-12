@@ -2,9 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java-app
-  namespace: prod
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: java-app
@@ -15,7 +14,7 @@ spec:
     spec:
       containers:
         - name: java-app
-          image: ghcr.io/placeholder/java-app:latest
+          image: ghcr.io/sajjadkhan12/complete-app-cicd/java-app:latest
           ports:
             - containerPort: 8080
           livenessProbe:
@@ -29,7 +28,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: java-app
-  namespace: prod
 spec:
   selector:
     app: java-app
